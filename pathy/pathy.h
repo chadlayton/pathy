@@ -158,7 +158,7 @@ struct material
 struct point_light
 {
 	math::vec<3> position;
-	math::vec<3> color;	// TODO: Woudl be nice if this could be specified in terms of energy
+	math::vec<3> color;	// TODO: Would be nice if this could be specified in terms of energy.
 };
 
 struct scene
@@ -167,24 +167,24 @@ struct scene
 	std::vector<sphere> spheres;
 	std::vector<material> sphere_materials;
 
-	bool intersect(const ray& ray, const scene& scene, intersection* out_intersection) const
+	bool intersect(const ray& ray, intersection* out_intersection) const
 	{
-		const float k_min_t = std::numeric_limits<float>::epsilon();
+		const float k_min_t = 0.001f; // std::numeric_limits<float>::epsilon();
 		const float k_max_t = std::numeric_limits<float>::infinity();
 
 		bool intersection_found = false;
 
 		float t_closest = k_max_t;
 
-		for (size_t i = 0; i < scene.spheres.size(); ++i)
+		for (size_t i = 0; i < spheres.size(); ++i)
 		{
 			float t;
-			if (intersect_ray_sphere(ray, k_min_t, t_closest, scene.spheres[i], &t))
+			if (intersect_ray_sphere(ray, k_min_t, t_closest, spheres[i], &t))
 			{
 				intersection_found = true;
 
 				out_intersection->position = ray.point_at(t);
-				out_intersection->normal = (out_intersection->position - scene.spheres[i].center) * scene.spheres[i].inverse_radius;
+				out_intersection->normal = (out_intersection->position - spheres[i].center) * spheres[i].inverse_radius;
 				out_intersection->t = t;
 				out_intersection->material_index = i;
 
@@ -201,7 +201,7 @@ struct normal_renderer
 	static math::vec<3> radiance(const scene& scene, const ray& ray) 
 	{
 		intersection its;
-		if (scene.intersect(ray, scene, &its))
+		if (scene.intersect(ray, &its))
 		{
 			return (its.normal + 1) / 2;
 		}
@@ -216,9 +216,14 @@ struct whitted_renderer
 	static math::vec<3> radiance(const scene& scene, const ray& ray)
 	{
 		intersection its;
-		if (scene.intersect(ray, scene, &its))
+		if (scene.intersect(ray, &its))
 		{
 			const math::vec<3> direction_to_light = math::normalize(scene.point_lights[0].position - its.position);
+			intersection its2;
+			if (scene.intersect({ its.position, direction_to_light }, &its2))
+			{
+				return { 0 };
+			}
 			const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
 			return scene.sphere_materials[its.material_index].base_color * n_dot_l;
 		}
