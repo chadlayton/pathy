@@ -220,15 +220,18 @@ struct whitted_renderer
 		intersection its;
 		if (scene.intersect(ray, &its))
 		{
-			const math::vec<3> direction_to_light = math::normalize(scene.point_lights[0].position - its.position);
-			intersection its2;
-			if (scene.intersect({ its.position, direction_to_light }, &its2))
-			{
-				return { 0 };
-			}
+			math::vec<3> L = { 0 };
 
-			const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
-			math::vec<3> L = scene.sphere_materials[its.material_index].base_color * n_dot_l;
+			for (const point_light& point_light : scene.point_lights)
+			{
+				const math::vec<3> direction_to_light = math::normalize(point_light.position - its.position);
+				intersection its2;
+				if (!scene.intersect({ its.position, direction_to_light }, &its2))
+				{
+					const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
+					L += point_light.color * scene.sphere_materials[its.material_index].base_color * n_dot_l;
+				}
+			}
 
 			if (++depth < 3)
 			{

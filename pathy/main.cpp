@@ -257,10 +257,9 @@ scene load_scene(const char* filepath)
 		sphere sphere(translate, radius);
 		scene.spheres.push_back(sphere);
 		scene.sphere_materials.push_back(material);
-
-		point_light point_light{ { 0, 10, 0 }, { 1 } };
-		scene.point_lights.push_back(point_light);
 	}
+
+	scene.point_lights.push_back({ { 0, 10, 0 }, { 0.9f, 0.9f, 0.9f } });
 
 	return scene;
 }
