@@ -212,8 +212,10 @@ struct normal_renderer
 
 struct whitted_renderer
 {
+	int depth = 0;
+
 	// Sample the incident radiance along a ray
-	static math::vec<3> radiance(const scene& scene, const ray& ray)
+	math::vec<3> radiance(const scene& scene, const ray& ray)
 	{
 		intersection its;
 		if (scene.intersect(ray, &its))
@@ -224,8 +226,16 @@ struct whitted_renderer
 			{
 				return { 0 };
 			}
+
 			const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
-			return scene.sphere_materials[its.material_index].base_color * n_dot_l;
+			math::vec<3> L = scene.sphere_materials[its.material_index].base_color * n_dot_l;
+
+			if (++depth < 3)
+			{
+				if (its.material_index == 1) L += radiance(scene, { its.position, math::normalize(math::reflect(ray.direction, its.normal)) });
+			}
+
+			return L;
 		}
 
 		return { 0 };
@@ -249,7 +259,9 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 					static_cast<float>(x) / image->width, 
 					static_cast<float>(y) / image->height);
 
-				math::vec<3> color = whitted_renderer::radiance(scene, ray);
+				whitted_renderer renderer;
+
+				math::vec<3> color = renderer.radiance(scene, ray);
 
 				color = linear_to_srgb(color);
 
