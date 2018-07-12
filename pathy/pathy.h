@@ -33,9 +33,14 @@ struct image
 	std::vector<pixel> data;
 };
 
-float linear_to_srgb(float c)
+math::vec<3> linear_to_srgb(const math::vec<3>& color)
 {
-	return 1.055f * std::pow(c, 0.416666667f) - 0.055f;
+	math::vec<3> result;
+	for (int i = 0; i < 3; ++i)
+	{
+		result[i] = 1.055f * std::pow(color[i], 0.416666667f) - 0.055f;
+	}
+	return result;
 }
 
 struct ray
@@ -152,7 +157,8 @@ struct material
 
 struct point_light
 {
-	math::vec<3> origin;
+	math::vec<3> position;
+	math::vec<3> color;	// TODO: Woudl be nice if this could be specified in terms of energy
 };
 
 struct scene
@@ -212,7 +218,9 @@ struct whitted_renderer
 		intersection its;
 		if (scene.intersect(ray, scene, &its))
 		{
-			return scene.sphere_materials[its.material_index].base_color;
+			const math::vec<3> direction_to_light = math::normalize(scene.point_lights[0].position - its.position);
+			const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
+			return scene.sphere_materials[its.material_index].base_color * n_dot_l;
 		}
 
 		return { 0 };
@@ -238,12 +246,14 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 
 				math::vec<3> color = whitted_renderer::radiance(scene, ray);
 
+				color = linear_to_srgb(color);
+
 				color = math::saturate(color);
 
 				image->data[image->width * y + x] = {
-					static_cast<uint8_t>(255.0f * linear_to_srgb(color.x)),
-					static_cast<uint8_t>(255.0f * linear_to_srgb(color.y)),
-					static_cast<uint8_t>(255.0f * linear_to_srgb(color.z)),
+					static_cast<uint8_t>(255.0f * color.x),
+					static_cast<uint8_t>(255.0f * color.y),
+					static_cast<uint8_t>(255.0f * color.z),
 					255
 				};
 			}
