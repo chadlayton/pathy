@@ -60,6 +60,7 @@ struct intersection
 	math::vec<3> position;    // position of the intersection with the surface
 	math::vec<3> normal;      // the geometry normal
 	float t;                  // distance along the ray
+	size_t material_index;	  // the index to the material in the scene
 };
 
 struct sphere
@@ -76,7 +77,7 @@ struct sphere
 	const float inverse_radius;
 };
 
-bool intersect_ray_sphere(const ray& r, float t_min, float t_max, const sphere& sphere, intersection* out_intersection)
+bool intersect_ray_sphere(const ray& r, float t_min, float t_max, const sphere& sphere, float* out_t)
 {
 	const math::vec<3> oc = r.origin - sphere.center;
 	const float b = math::dot(oc, r.direction);
@@ -89,9 +90,7 @@ bool intersect_ray_sphere(const ray& r, float t_min, float t_max, const sphere& 
 		float t = (-b - discriminant_sqrt);
 		if (t < t_max && t > t_min)
 		{
-			out_intersection->position = r.point_at(t);
-			out_intersection->normal = (out_intersection->position - sphere.center) * sphere.inverse_radius;
-			out_intersection->t = t;
+			*out_t = t;
 
 			return true;
 		}
@@ -99,9 +98,7 @@ bool intersect_ray_sphere(const ray& r, float t_min, float t_max, const sphere& 
 		t = (-b + discriminant_sqrt);
 		if (t < t_max && t > t_min)
 		{
-			out_intersection->position = r.point_at(t);
-			out_intersection->normal = (out_intersection->position - sphere.center) * sphere.inverse_radius;
-			out_intersection->t = t;
+			*out_t = t;
 
 			return true;
 		}
@@ -146,9 +143,23 @@ struct camera
 	math::vec<3> eye;
 };
 
+struct material
+{
+	math::vec<3> base_color;
+	bool reflection;
+	bool refraction;
+};
+
+struct point_light
+{
+	math::vec<3> origin;
+};
+
 struct scene
 {
+	std::vector<point_light> point_lights;
 	std::vector<sphere> spheres;
+	std::vector<material> sphere_materials;
 
 	bool intersect(const ray& ray, const scene& scene, intersection* out_intersection) const
 	{
@@ -161,10 +172,17 @@ struct scene
 
 		for (size_t i = 0; i < scene.spheres.size(); ++i)
 		{
-			if (intersect_ray_sphere(ray, k_min_t, t_closest, scene.spheres[i], out_intersection))
+			float t;
+			if (intersect_ray_sphere(ray, k_min_t, t_closest, scene.spheres[i], &t))
 			{
 				intersection_found = true;
-				t_closest = out_intersection->t;
+
+				out_intersection->position = ray.point_at(t);
+				out_intersection->normal = (out_intersection->position - scene.spheres[i].center) * scene.spheres[i].inverse_radius;
+				out_intersection->t = t;
+				out_intersection->material_index = i;
+
+				t_closest = t;
 			}
 		}
 
@@ -191,6 +209,12 @@ struct whitted_renderer
 	// Sample the incident radiance along a ray
 	static math::vec<3> radiance(const scene& scene, const ray& ray)
 	{
+		intersection its;
+		if (scene.intersect(ray, scene, &its))
+		{
+			return scene.sphere_materials[its.material_index].base_color;
+		}
+
 		return { 0 };
 	}
 };
@@ -212,7 +236,7 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 					static_cast<float>(x) / image->width, 
 					static_cast<float>(y) / image->height);
 
-				math::vec<3> color = normal_renderer::radiance(scene, ray);
+				math::vec<3> color = whitted_renderer::radiance(scene, ray);
 
 				color = math::saturate(color);
 

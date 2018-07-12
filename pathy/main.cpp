@@ -136,8 +136,127 @@ scene load_scene(const char* filepath)
 			continue;
 		}
 
+		material material;
+
+		if (tinyxml2::XMLElement* bsdf_element = shape_element->FirstChildElement("bsdf"))
+		{
+			if (strcmp(bsdf_element->Attribute("type"), "diffuse") == 0)
+			{
+				math::vec<3> reflectance;
+				tinyxml2::XMLElement* rgb_element = nullptr;
+				for (rgb_element = bsdf_element->FirstChildElement("rgb");
+					rgb_element;
+					rgb_element = rgb_element->NextSiblingElement("rgb"))
+				{
+					if (strcmp(rgb_element->Attribute("name"), "reflectance") == 0)
+					{
+						if (sscanf_s(rgb_element->Attribute("value"), "%f, %f, %f", &reflectance.x, &reflectance.y, &reflectance.z) != 3)
+						{
+							std::cerr << "failed to parse reflectance: " << rgb_element->Attribute("value") << std::endl;
+
+							continue;
+						}
+						break;
+					}
+				}
+				if (!rgb_element)
+				{
+					std::cerr << "diffuse is missing a rgb reflectance element" << std::endl;
+
+					continue;
+				}
+
+				material.base_color = reflectance;
+			}
+			else if (strcmp(bsdf_element->Attribute("type"), "roughconductor") == 0)
+			{
+				math::vec<3> specular_reflectance;
+				tinyxml2::XMLElement* rgb_element = nullptr;
+				for (rgb_element = bsdf_element->FirstChildElement("rgb");
+					rgb_element;
+					rgb_element = rgb_element->NextSiblingElement("rgb"))
+				{
+					if (strcmp(rgb_element->Attribute("name"), "specularReflectance") == 0)
+					{
+						if (sscanf_s(rgb_element->Attribute("value"), "%f, %f, %f", &specular_reflectance.x, &specular_reflectance.y, &specular_reflectance.z) != 3)
+						{
+							std::cerr << "failed to parse specularReflectance: " << rgb_element->Attribute("value") << std::endl;
+
+							continue;
+						}
+						break;
+					}
+				}
+				if (!rgb_element)
+				{
+					std::cerr << "roughconductor is missing a rgb specularReflectance element" << std::endl;
+
+					continue;
+				}
+
+				float alpha;
+				tinyxml2::XMLElement* float_element = nullptr;
+				for (float_element = bsdf_element->FirstChildElement("float");
+					float_element;
+					float_element = float_element->NextSiblingElement("float"))
+				{
+					if (strcmp(float_element->Attribute("name"), "alpha") == 0)
+					{
+						alpha = float_element->FloatAttribute("value");
+
+						break;
+					}
+				}
+				if (!float_element)
+				{
+					std::cerr << "roughconductor is missing a float alpha element" << std::endl;
+
+					continue;
+				}
+
+				material.base_color = specular_reflectance;
+			}
+			else if (strcmp(bsdf_element->Attribute("type"), "dielectric") == 0)
+			{
+				float ior;
+				tinyxml2::XMLElement* float_element = nullptr;
+				for (float_element = bsdf_element->FirstChildElement("float");
+					float_element;
+					float_element = float_element->NextSiblingElement("float"))
+				{
+					if (strcmp(float_element->Attribute("name"), "intIOR") == 0)
+					{
+						ior = float_element->FloatAttribute("value");
+
+						break;
+					}
+				}
+				if (!float_element)
+				{
+					std::cerr << "dielectric is missing a float intIOR element" << std::endl;
+
+					continue;
+				}
+
+				material.base_color = 0;
+			}
+			else
+			{
+				std::cerr << "bsdf has unsupported type: " << bsdf_element->Attribute("type") << std::endl;
+
+				continue;
+			}
+		}
+		else
+		{
+			std::cerr << "shape is missing a bsdf element." << std::endl;
+
+			continue;
+		}
+
 		sphere sphere(translate, radius);
 		scene.spheres.push_back(sphere);
+		scene.sphere_materials.push_back(material);
 	}
 
 	return scene;
