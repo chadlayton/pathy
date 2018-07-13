@@ -602,9 +602,9 @@ namespace math
 		const float zfar_per_zdist = zfar / zdist;
 		return {
 			{ width, 0, 0, 0 },
-		{ 0, height, 0, 0 },
-		{ 0, 0, zfar_per_zdist, -1 },
-		{ 0, 0, 2.0f * znear * zfar_per_zdist, 0 }
+			{ 0, height, 0, 0 },
+			{ 0, 0, zfar_per_zdist, -1 },
+			{ 0, 0, 2.0f * znear * zfar_per_zdist, 0 }
 		};
 	}
 
@@ -621,9 +621,9 @@ namespace math
 		const float zfar_per_zdist = zfar / zdist;
 		return {
 			{ width, 0, 0, 0 },
-		{ 0, height, 0, 0 },
-		{ 0, 0, -zfar_per_zdist, 1 },
-		{ 0, 0, 2.0f * znear * zfar_per_zdist, 0 }
+			{ 0, height, 0, 0 },
+			{ 0, 0, -zfar_per_zdist, 1 },
+			{ 0, 0, 2.0f * znear * zfar_per_zdist, 0 }
 		};
 	}
 
@@ -632,9 +632,9 @@ namespace math
 	{
 		return {
 			{ 1.0f, 0.0f, 0.0f, 0.0f },
-		{ 0.0f, cos(radians), sin(radians), 0.0f },
-		{ 0.0f, -sinf(radians), cosf(radians), 0.0f },
-		{ 0.0f, 0.0f, 0.0f, 1.0f },
+			{ 0.0f, cos(radians), sin(radians), 0.0f },
+			{ 0.0f, -sinf(radians), cosf(radians), 0.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
 		};
 	}
 
@@ -643,9 +643,9 @@ namespace math
 	{
 		return {
 			{ cos(radians), 0.0f, sin(radians), 0.0f },
-		{ 0.0f, 1.0f, 0.0f, 0.0f },
-		{ -sinf(radians), 0.0f, cosf(radians), 0.0f },
-		{ 0.0f, 0.0f, 0.0f, 1.0f },
+			{ 0.0f, 1.0f, 0.0f, 0.0f },
+			{ -sinf(radians), 0.0f, cosf(radians), 0.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
 		};
 	}
 
@@ -654,9 +654,9 @@ namespace math
 	{
 		return {
 			{ cos(radians), -sin(radians), 0.0f, 0.0f },
-		{ sin(radians), cos(radians), 0.0f, 0.0f },
-		{ 0.0f, 0.0f, 1.0f, 0.0f },
-		{ 0.0f, 0.0f, 0.0f, 1.0f },
+			{ sin(radians), cos(radians), 0.0f, 0.0f },
+			{ 0.0f, 0.0f, 1.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
 		};
 	}
 
@@ -667,6 +667,18 @@ namespace math
 		for (size_t i = 0; i < 3; ++i)
 		{
 			ret[i][i] = scale;
+		}
+
+		return ret;
+	}
+
+	mat<4> create_scale(const math::vec<3>& scale)
+	{
+		mat<4> ret = create_identity<4>();
+
+		for (size_t i = 0; i < 3; ++i)
+		{
+			ret[i][i] = scale[i];
 		}
 
 		return ret;

@@ -31,7 +31,7 @@ VOID OnPaint(HDC hdc)
 		printf("completed in %.2f seconds (%.2f million rays/second)", time_seconds, (ray_count * 0.000001) / time_seconds);
 	}
 
-	Bitmap bmp(g_image.width, g_image.height, g_image.pitch, PixelFormat32bppARGB, reinterpret_cast<BYTE*>(&g_image.data[0]));
+	Bitmap bmp(g_image.width, g_image.height, g_image.pitch, PixelFormat24bppRGB, reinterpret_cast<BYTE*>(&g_image.data[0]));
 	bmp.RotateFlip(RotateFlipType::Rotate180FlipX);
 
 	Graphics graphics(hdc);
@@ -81,6 +81,46 @@ scene load_scene(const char* filepath)
 		std::cerr << "the scene " << filepath << " is invalid." << std::endl;
 
 		return scene;
+	}
+
+	for (const tinyxml2::XMLElement* scene_child_element = scene_element->FirstChildElement();
+		scene_child_element;
+		scene_child_element = scene_child_element->NextSiblingElement())
+	{
+		if (strcmp(scene_child_element->Name(), "emitter") == 0)
+		{
+			if (strcmp(scene_child_element->Attribute("type"), "point") == 0)
+			{
+				math::vec<3> position = { 0 };
+
+				for (const tinyxml2::XMLElement* emitter_child_element = scene_child_element->FirstChildElement();
+					emitter_child_element;
+					emitter_child_element = emitter_child_element->NextSiblingElement())
+				{
+					if (strcmp(emitter_child_element->Name(), "point") == 0)
+					{
+						if (strcmp(emitter_child_element->Attribute("name"), "position") == 0)
+						{
+							position.x = emitter_child_element->FloatAttribute("x");
+							position.y = emitter_child_element->FloatAttribute("y");
+							position.z = emitter_child_element->FloatAttribute("z");
+						}
+					}
+				}
+
+				scene.point_lights.push_back({ position, { 0.9f, 0.9f, 0.9f } });
+			}
+			else if (strcmp(scene_child_element->Attribute("type"), "constant") == 0)
+			{
+				// unsupported
+			}
+			else
+			{
+				std::cerr << "emitter has unsupported type: " << scene_child_element->Attribute("type") << std::endl;
+
+				continue;
+			}
+		}
 	}
 
 	for (tinyxml2::XMLElement* shape_element = scene_element->FirstChildElement("shape");
@@ -167,6 +207,7 @@ scene load_scene(const char* filepath)
 				}
 
 				material.base_color = reflectance;
+				material.specular = false;
 			}
 			else if (strcmp(bsdf_element->Attribute("type"), "roughconductor") == 0)
 			{
@@ -215,31 +256,32 @@ scene load_scene(const char* filepath)
 				}
 
 				material.base_color = specular_reflectance;
+				material.specular = true;
 			}
-			else if (strcmp(bsdf_element->Attribute("type"), "dielectric") == 0)
-			{
-				float ior;
-				tinyxml2::XMLElement* float_element = nullptr;
-				for (float_element = bsdf_element->FirstChildElement("float");
-					float_element;
-					float_element = float_element->NextSiblingElement("float"))
-				{
-					if (strcmp(float_element->Attribute("name"), "intIOR") == 0)
-					{
-						ior = float_element->FloatAttribute("value");
+			//else if (strcmp(bsdf_element->Attribute("type"), "dielectric") == 0)
+			//{
+			//	float ior;
+			//	tinyxml2::XMLElement* float_element = nullptr;
+			//	for (float_element = bsdf_element->FirstChildElement("float");
+			//		float_element;
+			//		float_element = float_element->NextSiblingElement("float"))
+			//	{
+			//		if (strcmp(float_element->Attribute("name"), "intIOR") == 0)
+			//		{
+			//			ior = float_element->FloatAttribute("value");
 
-						break;
-					}
-				}
-				if (!float_element)
-				{
-					std::cerr << "dielectric is missing a float intIOR element" << std::endl;
+			//			break;
+			//		}
+			//	}
+			//	if (!float_element)
+			//	{
+			//		std::cerr << "dielectric is missing a float intIOR element" << std::endl;
 
-					continue;
-				}
+			//		continue;
+			//	}
 
-				material.base_color = 0;
-			}
+			//	material.base_color = 0;
+			//}
 			else
 			{
 				std::cerr << "bsdf has unsupported type: " << bsdf_element->Attribute("type") << std::endl;
@@ -258,8 +300,6 @@ scene load_scene(const char* filepath)
 		scene.spheres.push_back(sphere);
 		scene.sphere_materials.push_back(material);
 	}
-
-	scene.point_lights.push_back({ { 0, 10, 0 }, { 0.9f, 0.9f, 0.9f } });
 
 	return scene;
 }

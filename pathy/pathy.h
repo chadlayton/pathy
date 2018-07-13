@@ -12,11 +12,11 @@ struct image
 {
 	struct pixel
 	{
-		uint8_t b, g, r, a;
+		uint8_t b, g, r;
 	};
 
-	static constexpr pixel white = { 255, 255, 255, 255 };
-	static constexpr pixel black = { 0, 0, 0, 255 };
+	static constexpr pixel white = { 255, 255, 255 };
+	static constexpr pixel black = { 0, 0, 0 };
 
 	image(int width, int height) : 
 		width(width), 
@@ -151,8 +151,7 @@ struct camera
 struct material
 {
 	math::vec<3> base_color;
-	bool reflection;
-	bool refraction;
+	bool specular;
 };
 
 struct point_light
@@ -194,6 +193,23 @@ struct scene
 
 		return intersection_found;
 	}
+
+	bool intersect(const ray& ray) const
+	{
+		const float k_min_t = 0.001f; // std::numeric_limits<float>::epsilon();
+		const float k_max_t = std::numeric_limits<float>::infinity();
+
+		for (size_t i = 0; i < spheres.size(); ++i)
+		{
+			float t;
+			if (intersect_ray_sphere(ray, k_min_t, k_max_t, spheres[i], &t))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 };
 
 struct normal_renderer
@@ -224,18 +240,19 @@ struct whitted_renderer
 
 			for (const point_light& point_light : scene.point_lights)
 			{
-				const math::vec<3> direction_to_light = math::normalize(point_light.position - its.position);
-				intersection its2;
-				if (!scene.intersect({ its.position, direction_to_light }, &its2))
+				const float distance_to_light = math::distance(point_light.position, its.position);
+				const math::vec<3> direction_to_light = (point_light.position - its.position) / distance_to_light;
+				if (!scene.intersect({ its.position, direction_to_light }))
 				{
 					const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
-					L += point_light.color * scene.sphere_materials[its.material_index].base_color * n_dot_l;
+					const float attentuation = 1 / (distance_to_light * distance_to_light);
+					L += scene.sphere_materials[its.material_index].base_color * n_dot_l * point_light.color * attentuation;
 				}
 			}
 
-			if (++depth < 3)
+			if (depth++ < 4)
 			{
-				if (its.material_index == 1) L += radiance(scene, { its.position, math::normalize(math::reflect(ray.direction, its.normal)) });
+				if (scene.sphere_materials[its.material_index].specular) L += radiance(scene, { its.position, math::normalize(math::reflect(ray.direction, its.normal)) });
 			}
 
 			return L;
@@ -259,7 +276,7 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 			for (int x = 0; x < image->width; ++x)
 			{
 				const ray ray = camera.create_ray(
-					static_cast<float>(x) / image->width, 
+					static_cast<float>(x) / image->width,
 					static_cast<float>(y) / image->height);
 
 				whitted_renderer renderer;
@@ -271,10 +288,9 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 				color = math::saturate(color);
 
 				image->data[image->width * y + x] = {
-					static_cast<uint8_t>(255.0f * color.x),
-					static_cast<uint8_t>(255.0f * color.y),
 					static_cast<uint8_t>(255.0f * color.z),
-					255
+					static_cast<uint8_t>(255.0f * color.y),
+					static_cast<uint8_t>(255.0f * color.x),
 				};
 			}
 		});
