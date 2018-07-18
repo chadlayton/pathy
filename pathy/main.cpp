@@ -28,7 +28,7 @@ VOID OnPaint(HDC hdc)
 
 		const double time_seconds = timer.stop() * 0.001;
 
-		printf("completed in %.2f seconds (%.2f million rays/second)", time_seconds, (ray_count * 0.000001) / time_seconds);
+		printf("completed in %.2f seconds. %u rays cast (%.2f million rays/second).", time_seconds, ray_count, (ray_count * 0.000001) / time_seconds);
 	}
 
 	Bitmap bmp(g_image.width, g_image.height, g_image.pitch, PixelFormat24bppRGB, reinterpret_cast<BYTE*>(&g_image.data[0]));

@@ -164,7 +164,7 @@ struct scene
 {
 	std::vector<point_light> point_lights;
 	std::vector<sphere> spheres;
-	std::vector<material> sphere_materials;
+	std::vector<material> sphere_materials; 
 
 	bool intersect(const ray& ray, intersection* out_intersection) const
 	{
@@ -231,8 +231,10 @@ struct whitted_renderer
 	int depth = 0;
 
 	// Sample the incident radiance along a ray
-	math::vec<3> radiance(const scene& scene, const ray& ray)
+	math::vec<3> radiance(const scene& scene, const ray& ray, unsigned* inout_ray_count)
 	{
+		++(*inout_ray_count);
+
 		intersection its;
 		if (scene.intersect(ray, &its))
 		{
@@ -242,6 +244,9 @@ struct whitted_renderer
 			{
 				const float distance_to_light = math::distance(point_light.position, its.position);
 				const math::vec<3> direction_to_light = (point_light.position - its.position) / distance_to_light;
+
+				++(*inout_ray_count);
+				
 				if (!scene.intersect({ its.position, direction_to_light }))
 				{
 					const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
@@ -252,7 +257,7 @@ struct whitted_renderer
 
 			if (depth++ < 4)
 			{
-				if (scene.sphere_materials[its.material_index].specular) L += radiance(scene, { its.position, math::normalize(math::reflect(ray.direction, its.normal)) });
+				if (scene.sphere_materials[its.material_index].specular) L += radiance(scene, { its.position, math::normalize(math::reflect(ray.direction, its.normal)) }, inout_ray_count);
 			}
 
 			return L;
@@ -269,9 +274,14 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 	const unsigned num_threads = std::max(1u, std::thread::hardware_concurrency());
 	tf::Taskflow tf(num_threads);
 
+	std::vector<unsigned> statistics;
+	statistics.resize(image->height);
+
 	for (int y = 0; y < image->height; ++y)
 	{
-		tf::Taskflow::Task task = tf.silent_emplace([camera, scene, image, y]() 
+		unsigned& ray_count = statistics[y];
+
+		tf::Taskflow::Task task = tf.silent_emplace([camera, scene, image, y, &ray_count]()
 		{
 			for (int x = 0; x < image->width; ++x)
 			{
@@ -281,7 +291,7 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 
 				whitted_renderer renderer;
 
-				math::vec<3> color = renderer.radiance(scene, ray);
+				math::vec<3> color = renderer.radiance(scene, ray, &ray_count);
 
 				color = linear_to_srgb(color);
 
@@ -298,4 +308,9 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 
 	tf.dispatch();
 	tf.wait_for_all();
+
+	for (const unsigned& ray_count : statistics)
+	{
+		*inout_ray_count += ray_count;
+	}
 }
