@@ -92,6 +92,8 @@ scene load_scene(const char* filepath)
 			if (strcmp(scene_child_element->Attribute("type"), "point") == 0)
 			{
 				math::vec<3> position = { 0 };
+				// The radiant intensity in units of power per unit steradian
+				math::vec<3> intensity = { 1 };
 
 				for (const tinyxml2::XMLElement* emitter_child_element = scene_child_element->FirstChildElement();
 					emitter_child_element;
@@ -105,14 +107,65 @@ scene load_scene(const char* filepath)
 							position.y = emitter_child_element->FloatAttribute("y");
 							position.z = emitter_child_element->FloatAttribute("z");
 						}
+						else
+						{
+							assert(false);
+						}
+					}
+					else if (strcmp(emitter_child_element->Name(), "rgb") == 0)
+					{
+						if (strcmp(emitter_child_element->Attribute("name"), "intensity") == 0)
+						{
+							const char* value = emitter_child_element->Attribute("value");
+							if (sscanf_s(value, "%f, %f, %f", &intensity[0], &intensity[1], &intensity[2]) != 3)
+							{
+								assert(false);
+							}
+						}
+						else
+						{
+							assert(false);
+						}
+					}
+					else
+					{
+						assert(false);
 					}
 				}
 
-				scene.point_lights.push_back({ position, { 0.9f, 0.9f, 0.9f } });
+				scene.point_lights.push_back({ position, intensity });
 			}
 			else if (strcmp(scene_child_element->Attribute("type"), "constant") == 0)
 			{
-				// unsupported
+				// The emitted radiance in units of power per unit area per unit steradian
+				math::vec<3> radiance = { 0 };
+
+				for (const tinyxml2::XMLElement* emitter_child_element = scene_child_element->FirstChildElement();
+					emitter_child_element;
+					emitter_child_element = emitter_child_element->NextSiblingElement())
+				{
+					if (strcmp(emitter_child_element->Name(), "rgb") == 0)
+					{
+						if (strcmp(emitter_child_element->Attribute("name"), "radiance") == 0)
+						{
+							const char* value = emitter_child_element->Attribute("value");
+							if (sscanf_s(value, "%f, %f, %f", &radiance[0], &radiance[1], &radiance[2]) != 3)
+							{
+								assert(false);
+							}
+						}
+						else
+						{
+							assert(false);
+						}
+					}
+					else
+					{
+						assert(false);
+					}
+				}
+
+				scene.constant_light.radiance = radiance;
 			}
 			else
 			{

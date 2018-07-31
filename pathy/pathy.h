@@ -157,7 +157,12 @@ struct material
 struct point_light
 {
 	math::vec<3> position;
-	math::vec<3> color;	// TODO: Would be nice if this could be specified in terms of energy.
+	math::vec<3> intensity;
+};
+
+struct constant_light
+{
+	math::vec<3> radiance;
 };
 
 struct scene
@@ -165,6 +170,7 @@ struct scene
 	std::vector<point_light> point_lights;
 	std::vector<sphere> spheres;
 	std::vector<material> sphere_materials; 
+	constant_light constant_light;
 
 	bool intersect(const ray& ray, intersection* out_intersection) const
 	{
@@ -214,8 +220,10 @@ struct scene
 
 struct normal_renderer
 {
-	static math::vec<3> radiance(const scene& scene, const ray& ray) 
+	static math::vec<3> radiance(const scene& scene, const ray& ray, unsigned* inout_ray_count)
 	{
+		++(*inout_ray_count);
+
 		intersection its;
 		if (scene.intersect(ray, &its))
 		{
@@ -226,20 +234,18 @@ struct normal_renderer
 	}
 };
 
-struct whitted_renderer
+struct direct_renderer
 {
-	int depth = 0;
-
-	// Sample the incident radiance along a ray
 	math::vec<3> radiance(const scene& scene, const ray& ray, unsigned* inout_ray_count)
 	{
 		++(*inout_ray_count);
 
+		math::vec<3> L = { 0 };
+
 		intersection its;
 		if (scene.intersect(ray, &its))
 		{
-			math::vec<3> L = { 0 };
-
+			// The measure of a point light is direct
 			for (const point_light& point_light : scene.point_lights)
 			{
 				const float distance_to_light = math::distance(point_light.position, its.position);
@@ -249,21 +255,23 @@ struct whitted_renderer
 				
 				if (!scene.intersect({ its.position, direction_to_light }))
 				{
+					const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
 					const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
 					const float attentuation = 1 / (distance_to_light * distance_to_light);
-					L += scene.sphere_materials[its.material_index].base_color * n_dot_l * point_light.color * attentuation;
+					L += f * n_dot_l * (point_light.intensity * attentuation);
 				}
 			}
 
-			if (depth++ < 4)
-			{
-				if (scene.sphere_materials[its.material_index].specular) L += radiance(scene, { its.position, math::normalize(math::reflect(ray.direction, its.normal)) }, inout_ray_count);
-			}
+			const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
 
-			return L;
+			L += f * scene.constant_light.radiance;
+		}
+		else
+		{
+			L += scene.constant_light.radiance;
 		}
 
-		return { 0 };
+		return L;
 	}
 };
 
@@ -289,7 +297,7 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 					static_cast<float>(x) / image->width,
 					static_cast<float>(y) / image->height);
 
-				whitted_renderer renderer;
+				direct_renderer renderer;
 
 				math::vec<3> color = renderer.radiance(scene, ray, &ray_count);
 
