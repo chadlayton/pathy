@@ -234,6 +234,27 @@ struct normal_renderer
 	}
 };
 
+float uniform_random_01()
+{
+	return rand() / (RAND_MAX + 1.0f);
+}
+
+math::vec<3> random_on_unit_sphere()
+{
+	float theta = 2 * math::pi * uniform_random_01();
+	// Incorrect: Samples will be clustered at the poles
+	// float phi = math::pi * uniform_random_01()
+	float phi = acos(1 - 2 * uniform_random_01());
+
+	float dA = sin(phi);
+
+	float x = sin(phi) * cos(theta);
+	float y = sin(phi) * sin(theta);
+	float z = cos(phi);
+
+	return { x, y, z };
+}
+
 struct direct_renderer
 {
 	math::vec<3> radiance(const scene& scene, const ray& ray, unsigned* inout_ray_count)
@@ -245,7 +266,6 @@ struct direct_renderer
 		intersection its;
 		if (scene.intersect(ray, &its))
 		{
-			// The measure of a point light is direct
 			for (const point_light& point_light : scene.point_lights)
 			{
 				const float distance_to_light = math::distance(point_light.position, its.position);
@@ -262,9 +282,23 @@ struct direct_renderer
 				}
 			}
 
-			const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
+			{
+				const int light_samples = 32;
+				for (int i = 0; i < light_samples; ++i)
+				{
+					const math::vec<3> direction_to_light = random_on_unit_sphere();
 
-			L += f * scene.constant_light.radiance;
+					++(*inout_ray_count);
+
+					if (!scene.intersect({ its.position, direction_to_light }))
+					{
+						const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
+						const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
+						const float pdf = 1 / (4 * math::pi);
+						L += f * n_dot_l * (scene.constant_light.radiance / pdf) * (1.0f / light_samples);
+					}
+				}
+			}
 		}
 		else
 		{
