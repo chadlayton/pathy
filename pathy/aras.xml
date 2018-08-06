@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <scene version="0.5.0">
-	<integrator type="direct"/>
+	<integrator type="path"/>
 
 	<sensor type="perspective">
 		<transform name="toWorld">
-
 			<lookat origin="0,2,3" target="0,0,0" up="0,1,0"/>
 		</transform>
 		<float name="fov" value="60"/>
@@ -66,15 +65,15 @@
 		</transform>
 		<float name="radius" value="0.5"/>
 
-    <bsdf type="diffuse">
+    <!--<bsdf type="diffuse">
       <rgb name="reflectance" value="0.4, 0.4, 0.8"/>
-    </bsdf>
+    </bsdf>-->
 
-		<!--<bsdf type="roughconductor">
-			<float name="alpha" value="0"/>
-			<string name="material" value="none"/>
-			<rgb name="specularReflectance" value="0.4, 0.4, 0.8"/>
-		</bsdf>-->
+    
+		<bsdf type="conductor">
+      <string name="material" value="none"/>
+      <rgb name="specularReflectance" value="1.0, 1.0, 1.0"/>
+		</bsdf>
 	</shape>
 
 	<shape type="sphere">
@@ -147,9 +146,8 @@
 	  </bsdf>
   </shape>-->
 
-  <!--
 	<emitter type="point">
 		<rgb name="intensity" value="1, 1, 1"/>
 		<point name="position" x="-1.5" y="1.5" z="0"/>
-	</emitter>-->
+	</emitter>
 </scene>

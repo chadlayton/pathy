@@ -151,7 +151,7 @@ struct camera
 struct material
 {
 	math::vec<3> base_color;
-	bool specular;
+	bool mirror;
 };
 
 struct point_light
@@ -255,38 +255,31 @@ math::vec<3> random_on_unit_sphere()
 	return { x, y, z };
 }
 
-struct direct_renderer
+struct whitted_renderer
 {
-	math::vec<3> radiance(const scene& scene, const ray& ray, unsigned* inout_ray_count)
+	math::vec<3> radiance(const scene& scene, const ray& incident_ray, unsigned* inout_ray_count)
 	{
 		++(*inout_ray_count);
 
 		math::vec<3> L = { 0 };
 
 		intersection its;
-		if (scene.intersect(ray, &its))
+		if (scene.intersect(incident_ray, &its))
 		{
-			for (const point_light& point_light : scene.point_lights)
+			if (scene.sphere_materials[its.material_index].mirror)
 			{
-				const float distance_to_light = math::distance(point_light.position, its.position);
-				const math::vec<3> direction_to_light = (point_light.position - its.position) / distance_to_light;
-
-				++(*inout_ray_count);
-				
-				if (!scene.intersect({ its.position, direction_to_light }))
+				if (++_depth < 4)
 				{
-					const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
-					const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
-					const float attentuation = 1 / (distance_to_light * distance_to_light);
-					L += f * n_dot_l * (point_light.intensity * attentuation);
+					const math::vec<3> reflection_direction = math::reflect(incident_ray.direction, its.normal);
+					L += radiance(scene, { its.position, reflection_direction }, inout_ray_count);
 				}
 			}
-
+			else
 			{
-				const int light_samples = 32;
-				for (int i = 0; i < light_samples; ++i)
+				for (const point_light& point_light : scene.point_lights)
 				{
-					const math::vec<3> direction_to_light = random_on_unit_sphere();
+					const float distance_to_light = math::distance(point_light.position, its.position);
+					const math::vec<3> direction_to_light = (point_light.position - its.position) / distance_to_light;
 
 					++(*inout_ray_count);
 
@@ -294,8 +287,26 @@ struct direct_renderer
 					{
 						const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
 						const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
-						const float pdf = 1 / (4 * math::pi);
-						L += f * n_dot_l * (scene.constant_light.radiance / pdf) * (1.0f / light_samples);
+						const float attentuation = 1 / (distance_to_light * distance_to_light);
+						L += f * n_dot_l * point_light.intensity * attentuation;
+					}
+				}
+
+				{
+					const int light_samples = 32;
+					for (int i = 0; i < light_samples; ++i)
+					{
+						const math::vec<3> direction_to_light = random_on_unit_sphere();
+
+						++(*inout_ray_count);
+
+						if (!scene.intersect({ its.position, direction_to_light }))
+						{
+							const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
+							const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
+							const float pdf = 1 / (4 * math::pi);
+							L += f * n_dot_l * (scene.constant_light.radiance / pdf) * (1.0f / light_samples);
+						}
 					}
 				}
 			}
@@ -307,6 +318,8 @@ struct direct_renderer
 
 		return L;
 	}
+
+	int _depth = 0;
 };
 
 void render(const scene& scene, image* image, unsigned* inout_ray_count)
@@ -331,7 +344,7 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 					static_cast<float>(x) / image->width,
 					static_cast<float>(y) / image->height);
 
-				direct_renderer renderer;
+				whitted_renderer renderer;
 
 				math::vec<3> color = renderer.radiance(scene, ray, &ray_count);
 

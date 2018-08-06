@@ -260,9 +260,9 @@ scene load_scene(const char* filepath)
 				}
 
 				material.base_color = reflectance;
-				material.specular = false;
+				material.mirror = false;
 			}
-			else if (strcmp(bsdf_element->Attribute("type"), "roughconductor") == 0)
+			else if (strcmp(bsdf_element->Attribute("type"), "conductor") == 0)
 			{
 				math::vec<3> specular_reflectance;
 				tinyxml2::XMLElement* rgb_element = nullptr;
@@ -283,58 +283,14 @@ scene load_scene(const char* filepath)
 				}
 				if (!rgb_element)
 				{
-					std::cerr << "roughconductor is missing a rgb specularReflectance element" << std::endl;
-
-					continue;
-				}
-
-				float alpha;
-				tinyxml2::XMLElement* float_element = nullptr;
-				for (float_element = bsdf_element->FirstChildElement("float");
-					float_element;
-					float_element = float_element->NextSiblingElement("float"))
-				{
-					if (strcmp(float_element->Attribute("name"), "alpha") == 0)
-					{
-						alpha = float_element->FloatAttribute("value");
-
-						break;
-					}
-				}
-				if (!float_element)
-				{
-					std::cerr << "roughconductor is missing a float alpha element" << std::endl;
+					std::cerr << "conductor is missing a rgb specularReflectance element" << std::endl;
 
 					continue;
 				}
 
 				material.base_color = specular_reflectance;
-				material.specular = true;
+				material.mirror = true;
 			}
-			//else if (strcmp(bsdf_element->Attribute("type"), "dielectric") == 0)
-			//{
-			//	float ior;
-			//	tinyxml2::XMLElement* float_element = nullptr;
-			//	for (float_element = bsdf_element->FirstChildElement("float");
-			//		float_element;
-			//		float_element = float_element->NextSiblingElement("float"))
-			//	{
-			//		if (strcmp(float_element->Attribute("name"), "intIOR") == 0)
-			//		{
-			//			ior = float_element->FloatAttribute("value");
-
-			//			break;
-			//		}
-			//	}
-			//	if (!float_element)
-			//	{
-			//		std::cerr << "dielectric is missing a float intIOR element" << std::endl;
-
-			//		continue;
-			//	}
-
-			//	material.base_color = 0;
-			//}
 			else
 			{
 				std::cerr << "bsdf has unsupported type: " << bsdf_element->Attribute("type") << std::endl;
