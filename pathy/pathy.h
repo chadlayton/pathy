@@ -268,10 +268,11 @@ struct whitted_renderer
 		{
 			if (scene.sphere_materials[its.material_index].mirror)
 			{
-				if (++_depth < 4)
+				if (++_depth < _depth_max)
 				{
 					const math::vec<3> reflection_direction = math::reflect(incident_ray.direction, its.normal);
-					L += radiance(scene, { its.position, reflection_direction }, inout_ray_count);
+					const math::vec<3> f = scene.sphere_materials[its.material_index].base_color;
+					L += f * radiance(scene, { its.position, reflection_direction }, inout_ray_count);
 				}
 			}
 			else
@@ -319,6 +320,7 @@ struct whitted_renderer
 		return L;
 	}
 
+	int _depth_max = 2;
 	int _depth = 0;
 };
 
@@ -340,6 +342,15 @@ void render(const scene& scene, image* image, unsigned* inout_ray_count)
 		{
 			for (int x = 0; x < image->width; ++x)
 			{
+				//static const int bounds[4] = { 518, 519, 202, 203 };
+
+				//if (!(x >= (image->width - bounds[1]) && x < (image->width - bounds[0]) && (image->height - y) >= bounds[2] && (image->height - y) < bounds[3]))
+				//{
+				//		static int i = 0; 
+				//		++i;
+				//		continue;
+				//}
+
 				const ray ray = camera.create_ray(
 					static_cast<float>(x) / image->width,
 					static_cast<float>(y) / image->height);

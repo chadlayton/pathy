@@ -65,14 +65,9 @@
 		</transform>
 		<float name="radius" value="0.5"/>
 
-    <!--<bsdf type="diffuse">
-      <rgb name="reflectance" value="0.4, 0.4, 0.8"/>
-    </bsdf>-->
-
-    
 		<bsdf type="conductor">
       <string name="material" value="none"/>
-      <rgb name="specularReflectance" value="1.0, 1.0, 1.0"/>
+      <rgb name="specularReflectance" value="0.4, 0.4, 0.8"/>
 		</bsdf>
 	</shape>
 
