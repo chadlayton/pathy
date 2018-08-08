@@ -366,5 +366,5 @@ int main()
 
 	GdiplusShutdown(gdiplus_token);
 
-	return msg.wParam;
+	return static_cast<int>(msg.wParam);
 }

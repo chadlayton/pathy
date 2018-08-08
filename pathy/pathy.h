@@ -293,6 +293,7 @@ struct whitted_renderer
 					}
 				}
 
+				// constant environment light
 				{
 					const int light_samples = 32;
 					for (int i = 0; i < light_samples; ++i)
@@ -305,6 +306,7 @@ struct whitted_renderer
 						{
 							const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
 							const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
+							// http://corysimon.github.io/articles/uniformdistn-on-sphere/
 							const float pdf = 1 / (4 * math::pi);
 							L += f * n_dot_l * (scene.constant_light.radiance / pdf) * (1.0f / light_samples);
 						}
