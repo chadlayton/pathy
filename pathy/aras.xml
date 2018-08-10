@@ -129,17 +129,17 @@
       <float name="intIOR" value="1.5"/>
     </bsdf>
   </shape>-->
-	<!--
+
   <shape type="sphere">
-	  <transform name="toWorld"><translate x="-1.5" y="1.5" z="0"/></transform>
+	  <transform name="toWorld">
+      <translate x="-1.5" y="1.5" z="0"/>
+    </transform>
 	  <float name="radius" value="0.3"/>
+    
 	  <emitter type="area">
-		  <rgb name="radiance" value="30,25,15"/>
+		  <rgb name="intensity" value="30, 25, 15"/>
 	  </emitter>
-	  <bsdf type="diffuse">
-		  <rgb name="reflectance" value="0.8, 0.6, 0.2"/>
-	  </bsdf>
-  </shape>-->
+  </shape>
 
 	<emitter type="point">
 		<rgb name="intensity" value="1, 1, 1"/>

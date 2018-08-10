@@ -91,9 +91,9 @@ scene load_scene(const char* filepath)
 		{
 			if (strcmp(scene_child_element->Attribute("type"), "point") == 0)
 			{
-				math::vec<3> position = { 0 };
+				math::vec<3> position = { 0.0f, 0.0f, 0.0f };
 				// The radiant intensity in units of power per unit steradian
-				math::vec<3> intensity = { 1 };
+				math::vec<3> intensity = { 1.0f, 1.0f, 1.0f };
 
 				for (const tinyxml2::XMLElement* emitter_child_element = scene_child_element->FirstChildElement();
 					emitter_child_element;
@@ -187,7 +187,8 @@ scene load_scene(const char* filepath)
 			continue;
 		}
 
-		math::vec<3> translate;
+		math::vec<3> translate = { 0.0f, 0.0f, 0.0f };
+
 		if (tinyxml2::XMLElement* transform_element = shape_element->FirstChildElement("transform"))
 		{
 			if (tinyxml2::XMLElement* translation_element = transform_element->FirstChildElement("translate"))
@@ -196,23 +197,11 @@ scene load_scene(const char* filepath)
 				translate.y = translation_element->FloatAttribute("y");
 				translate.z = translation_element->FloatAttribute("z");
 			}
-			else
-			{
-				std::cerr << "transform is missing translate element" << std::endl;
-
-				continue;
-			}
-		}
-		else
-		{
-			std::cerr << "shape is missing a transform element." << std::endl;
-
-			continue;
 		}
 
-		float radius;
-		tinyxml2::XMLElement* float_element = nullptr;
-		for (float_element = shape_element->FirstChildElement("float");
+		float radius = 1.0f;
+
+		for (tinyxml2::XMLElement* float_element = shape_element->FirstChildElement("float");
 			float_element;
 			float_element = float_element->NextSiblingElement("float"))
 		{
@@ -222,22 +211,47 @@ scene load_scene(const char* filepath)
 				break;
 			}
 		}
-		if (!float_element)
-		{
-			std::cerr << "shape is missing a radius element" << std::endl;
 
-			continue;
+		if (tinyxml2::XMLElement* emitter_element = shape_element->FirstChildElement("emitter"))
+		{
+			if (strcmp(emitter_element->Attribute("type"), "area") != 0)
+			{
+				std::cerr << "emitter has unsupported type: " << emitter_element->Attribute("type") << std::endl;
+
+				continue;
+			}
+
+			// The radiant intensity in units of power per unit steradian
+			math::vec<3> intensity = { 1.0f, 1.0f, 1.0f };
+
+			for (tinyxml2::XMLElement* rgb_element = emitter_element->FirstChildElement("rgb");
+				rgb_element;
+				rgb_element = rgb_element->NextSiblingElement("rgb"))
+			{
+				if (strcmp(rgb_element->Attribute("name"), "intensity") == 0)
+				{
+					if (sscanf_s(rgb_element->Attribute("value"), "%f, %f, %f", &intensity.x, &intensity.y, &intensity.z) != 3)
+					{
+						std::cerr << "failed to parse intensity: " << rgb_element->Attribute("value") << std::endl;
+
+						continue;
+					}
+					break;
+				}
+			}
+
+			sphere_area_light sphere_area_light{ translate, radius, intensity };
+			scene.sphere_area_lights.push_back(sphere_area_light);
 		}
-
-		material material;
-
-		if (tinyxml2::XMLElement* bsdf_element = shape_element->FirstChildElement("bsdf"))
+		else if (tinyxml2::XMLElement* bsdf_element = shape_element->FirstChildElement("bsdf"))
 		{
+			material material;
+
 			if (strcmp(bsdf_element->Attribute("type"), "diffuse") == 0)
 			{
-				math::vec<3> reflectance;
-				tinyxml2::XMLElement* rgb_element = nullptr;
-				for (rgb_element = bsdf_element->FirstChildElement("rgb");
+				math::vec<3> reflectance = { 1.0f, 1.0f, 1.0f };
+
+				for (tinyxml2::XMLElement* rgb_element = bsdf_element->FirstChildElement("rgb");
 					rgb_element;
 					rgb_element = rgb_element->NextSiblingElement("rgb"))
 				{
@@ -252,21 +266,14 @@ scene load_scene(const char* filepath)
 						break;
 					}
 				}
-				if (!rgb_element)
-				{
-					std::cerr << "diffuse is missing a rgb reflectance element" << std::endl;
-
-					continue;
-				}
 
 				material.base_color = reflectance;
-				material.mirror = false;
 			}
 			else if (strcmp(bsdf_element->Attribute("type"), "conductor") == 0)
 			{
-				math::vec<3> specular_reflectance;
-				tinyxml2::XMLElement* rgb_element = nullptr;
-				for (rgb_element = bsdf_element->FirstChildElement("rgb");
+				math::vec<3> specular_reflectance = { 1.0f, 1.0f, 1.0f };
+
+				for (tinyxml2::XMLElement* rgb_element = bsdf_element->FirstChildElement("rgb");
 					rgb_element;
 					rgb_element = rgb_element->NextSiblingElement("rgb"))
 				{
@@ -281,15 +288,9 @@ scene load_scene(const char* filepath)
 						break;
 					}
 				}
-				if (!rgb_element)
-				{
-					std::cerr << "conductor is missing a rgb specularReflectance element" << std::endl;
-
-					continue;
-				}
 
 				material.base_color = specular_reflectance;
-				material.mirror = true;
+				material.is_mirror = true;
 			}
 			else
 			{
@@ -297,17 +298,11 @@ scene load_scene(const char* filepath)
 
 				continue;
 			}
-		}
-		else
-		{
-			std::cerr << "shape is missing a bsdf element." << std::endl;
 
-			continue;
+			sphere sphere{ translate, radius };
+			scene.spheres.push_back(sphere);
+			scene.sphere_materials.push_back(material);
 		}
-
-		sphere sphere(translate, radius);
-		scene.spheres.push_back(sphere);
-		scene.sphere_materials.push_back(material);
 	}
 
 	return scene;

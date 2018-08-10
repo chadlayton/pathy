@@ -70,23 +70,15 @@ struct intersection
 
 struct sphere
 {
-	sphere(const math::vec<3>& center, float radius) :
-		center(center),
-		radius(radius),
-		radius2(radius * radius),
-		inverse_radius(1.0f / radius) {}
-
-	const math::vec<3> center;
-	const float radius;
-	const float radius2;
-	const float inverse_radius;
+	math::vec<3> position;
+	float radius;
 };
 
 bool intersect_ray_sphere(const ray& r, float t_min, float t_max, const sphere& sphere, float* out_t)
 {
-	const math::vec<3> oc = r.origin - sphere.center;
+	const math::vec<3> oc = r.origin - sphere.position;
 	const float b = math::dot(oc, r.direction);
-	const float c = math::dot(oc, oc) - sphere.radius2;
+	const float c = math::dot(oc, oc) - (sphere.radius * sphere.radius);
 	const float discriminant = b * b - c;
 	if (discriminant > 0)
 	{
@@ -150,13 +142,20 @@ struct camera
 
 struct material
 {
-	math::vec<3> base_color;
-	bool mirror;
+	math::vec<3> base_color = { 1.0f, 1.0f, 1.0f };
+	bool is_mirror = false;
 };
 
 struct point_light
 {
 	math::vec<3> position;
+	math::vec<3> intensity;
+};
+
+struct sphere_area_light
+{
+	math::vec<3> position;
+	float radius;
 	math::vec<3> intensity;
 };
 
@@ -168,6 +167,7 @@ struct constant_light
 struct scene
 {
 	std::vector<point_light> point_lights;
+	std::vector<sphere_area_light> sphere_area_lights;
 	std::vector<sphere> spheres;
 	std::vector<material> sphere_materials; 
 	constant_light constant_light;
@@ -189,7 +189,7 @@ struct scene
 				intersection_found = true;
 
 				out_intersection->position = ray.point_at(t);
-				out_intersection->normal = (out_intersection->position - spheres[i].center) * spheres[i].inverse_radius;
+				out_intersection->normal = (out_intersection->position - spheres[i].position) / spheres[i].radius;
 				out_intersection->t = t;
 				out_intersection->material_index = i;
 
@@ -242,7 +242,7 @@ float uniform_random_01()
 math::vec<3> random_on_unit_sphere()
 {
 	float theta = 2 * math::pi * uniform_random_01();
-	// Incorrect: Samples will be clustered at the poles
+	// incorrect: samples will be clustered at the poles
 	// float phi = math::pi * uniform_random_01()
 	float phi = acos(1 - 2 * uniform_random_01());
 
@@ -266,7 +266,7 @@ struct whitted_renderer
 		intersection its;
 		if (scene.intersect(incident_ray, &its))
 		{
-			if (scene.sphere_materials[its.material_index].mirror)
+			if (scene.sphere_materials[its.material_index].is_mirror)
 			{
 				if (++_depth < _depth_max)
 				{
