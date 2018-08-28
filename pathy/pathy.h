@@ -234,25 +234,64 @@ struct normal_renderer
 	}
 };
 
-float uniform_random_01()
+float random_01()
 {
 	return rand() / (RAND_MAX + 1.0f);
 }
 
-math::vec<3> random_on_unit_sphere()
+math::vec<3> random_point_on_sphere()
 {
-	float theta = 2 * math::pi * uniform_random_01();
+	const float theta = 2 * math::pi * random_01();
 	// incorrect: samples will be clustered at the poles
 	// float phi = math::pi * uniform_random_01()
-	float phi = acos(1 - 2 * uniform_random_01());
+	const float phi = acos(1 - 2 * random_01());
 
-	float dA = sin(phi);
-
-	float x = sin(phi) * cos(theta);
-	float y = sin(phi) * sin(theta);
-	float z = cos(phi);
+	const float x = sin(phi) * cos(theta);
+	const float y = sin(phi) * sin(theta);
+	const float z = cos(phi);
 
 	return { x, y, z };
+}
+
+math::vec<3> random_point_on_hemisphere()
+{
+	return { 0, 0, 1 };
+}
+
+inline math::vec<3> spherical_to_cartesian(float sin_theta, float cos_theta, float phi) 
+{
+	return math::vec<3>(sin_theta * std::cos(phi), sin_theta * std::sin(phi), cos_theta);
+}
+
+math::vec<3> random_point_on_visible_sphere(const math::vec<3>& reference_point, const sphere& sphere, float* pdf)
+{
+	const float distance_to_sphere_center = math::distance(sphere.position, reference_point);
+	const math::vec<3> direction_to_sphere = (sphere.position - reference_point) / distance_to_sphere_center;
+
+	const float theta_max = asin(sphere.radius / distance_to_sphere_center);
+
+	const float theta = random_01() * theta_max;
+	const float phi = random_01() * 2 * math::pi;
+
+	// Theta is the angle between the sample point on the sphere and the center of the sphere when measured from the reference point
+	const float sin_theta = sin(theta);
+	const float sin_theta2 = sin_theta * sin_theta;
+	const float sin_theta_max = sin(theta_max);
+	const float sin_theta_max2 = sin_theta_max * sin_theta_max;
+
+	// Alpha is the angle between the sample point and the reference point when measure from the center of the sphere
+	const float cos_alpha = sin_theta2 / sin_theta_max + cos(theta) * sqrt(1 - sin_theta2 / sin_theta_max2);
+	const float sin_alpha = std::sqrt(std::max(0.0f, 1.0f - cos_alpha * cos_alpha));
+
+	// A point on the sphere as if observing from along the positive Z direction
+	math::vec<3> point_on_sphere_os = math::vec<3>(sin_alpha * std::cos(phi), sin_alpha * std::sin(phi), cos_alpha) * sphere.radius;
+
+	math::vec<3> v, u;
+	math::orthonormal_basis(direction_to_sphere, &v, &u);
+
+	*pdf = 1 / (2 * math::pi * (1 - std::cos(theta_max)));
+
+	return sphere.position + v * point_on_sphere_os.x + u * point_on_sphere_os.y + direction_to_sphere * point_on_sphere_os.z;
 }
 
 struct whitted_renderer
@@ -293,12 +332,35 @@ struct whitted_renderer
 					}
 				}
 
+				for (const sphere_area_light& area_light : scene.sphere_area_lights)
+				{
+					const int light_samples = 32;
+					for (int i = 0; i < light_samples; ++i)
+					{
+						float pdf = 0.0f;
+						const math::vec<3> point_on_sphere = random_point_on_visible_sphere(its.position, { area_light.position, area_light.radius }, &pdf);
+
+						const float distance_to_light = math::distance(point_on_sphere, its.position);
+						const math::vec<3> direction_to_light = (point_on_sphere - its.position) / distance_to_light;
+
+						++(*inout_ray_count);
+
+						if (!scene.intersect({ its.position, direction_to_light }))
+						{
+							const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
+							const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
+							const float attentuation = 1 / (distance_to_light * distance_to_light);
+							L += f * n_dot_l * (area_light.intensity / pdf) * (1.0f / light_samples);
+						}
+					}
+				}
+
 				// constant environment light
 				{
 					const int light_samples = 32;
 					for (int i = 0; i < light_samples; ++i)
 					{
-						const math::vec<3> direction_to_light = random_on_unit_sphere();
+						const math::vec<3> direction_to_light = random_point_on_sphere();
 
 						++(*inout_ray_count);
 
@@ -307,8 +369,8 @@ struct whitted_renderer
 							const math::vec<3> f = scene.sphere_materials[its.material_index].base_color / math::pi; // lambert
 							const float n_dot_l = std::max(0.0f, math::dot(its.normal, direction_to_light));
 							// http://corysimon.github.io/articles/uniformdistn-on-sphere/
-							const float pdf = 1 / (4 * math::pi);
-							L += f * n_dot_l * (scene.constant_light.radiance / pdf) * (1.0f / light_samples);
+							const float sphere_pdf = 1 / (4 * math::pi);
+							L += f * n_dot_l * (scene.constant_light.radiance / sphere_pdf) * (1.0f / light_samples);
 						}
 					}
 				}

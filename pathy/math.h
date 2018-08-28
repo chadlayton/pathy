@@ -880,4 +880,19 @@ namespace math
 	{
 		return new_min + (((original_value - original_min) / (original_max - original_min)) * (new_max - new_min));
 	}
+
+	inline void orthonormal_basis(const math::vec<3>& w, math::vec<3>* v, math::vec<3>* u)
+	{
+		if (std::abs(w.x) > std::abs(w.y)) 
+		{
+			const float inverse_length = 1.0f / std::sqrt(w.x * w.x + w.z * w.z);
+			*u = { w.z * inverse_length, 0.0f, -w.x * inverse_length };
+		}
+		else 
+		{
+			const float inverse_length = 1.0f / std::sqrt(w.y * w.y + w.z * w.z);
+			*u = { 0.0f, w.z * inverse_length, -w.y * inverse_length };
+		}
+		*v = cross(*u, w);
+	}
 }

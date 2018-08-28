@@ -22,9 +22,27 @@
 		</film>
 	</sensor>
 
+  <!--
 	<emitter type="constant">
 		<rgb name="radiance" value="0.15, 0.21, 0.3"/>
-	</emitter>
+	</emitter>-->
+
+  <!--
+	<emitter type="point">
+		<rgb name="intensity" value="1, 1, 1"/>
+		<point name="position" x="-1.5" y="1.5" z="0"/>
+	</emitter>-->
+
+  <shape type="sphere">
+    <transform name="toWorld">
+      <translate x="-1.5" y="1.5" z="0"/>
+    </transform>
+    <float name="radius" value="0.3"/>
+
+    <emitter type="area">
+      <rgb name="intensity" value="1.5, 1.5, 1.5"/>
+    </emitter>
+  </shape>
 
 	<shape type="sphere">
 		<transform name="toWorld">
@@ -129,20 +147,4 @@
       <float name="intIOR" value="1.5"/>
     </bsdf>
   </shape>-->
-
-  <shape type="sphere">
-	  <transform name="toWorld">
-      <translate x="-1.5" y="1.5" z="0"/>
-    </transform>
-	  <float name="radius" value="0.3"/>
-    
-	  <emitter type="area">
-		  <rgb name="intensity" value="30, 25, 15"/>
-	  </emitter>
-  </shape>
-
-	<emitter type="point">
-		<rgb name="intensity" value="1, 1, 1"/>
-		<point name="position" x="-1.5" y="1.5" z="0"/>
-	</emitter>
 </scene>
