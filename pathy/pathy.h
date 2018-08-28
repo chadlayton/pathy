@@ -265,6 +265,8 @@ inline math::vec<3> spherical_to_cartesian(float sin_theta, float cos_theta, flo
 
 math::vec<3> random_point_on_visible_sphere(const math::vec<3>& reference_point, const sphere& sphere, float* pdf)
 {
+	// https://www.akalin.com/sampling-visible-sphere
+
 	const float distance_to_sphere_center = math::distance(sphere.position, reference_point);
 	const math::vec<3> direction_to_sphere = (sphere.position - reference_point) / distance_to_sphere_center;
 
